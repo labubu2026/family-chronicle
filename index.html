@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 禁止搜索引擎收录 保护隐私 -->
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>家族编年史</title>
+<style>
+* {margin:0;padding:0;box-sizing:border-box;font-family:"微软雅黑",sans-serif;}
+body {background:#f5f5f5;color:#333;}
+
+#lockScreen {
+    position: fixed;
+    top:0;left:0;width:100%;height:100%;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+.lock-box {
+    background: #fff;
+    padding: 40px 30px;
+    border-radius: 10px;
+    text-align: center;
+    width: 90%;
+    max-width: 400px;
+}
+.lock-box h2 {margin-bottom:20px;color:#2c3e50;}
+.lock-box input {
+    width: 100%;
+    padding:12px;
+    font-size:16px;
+    border:1px solid #ddd;
+    border-radius:6px;
+    margin-bottom:20px;
+}
+.lock-box button {
+    padding:10px 30px;
+    background:#2c3e50;
+    color:#fff;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.nav {height:60px;background:#2c3e50;display:flex;align-items:center;padding:0 20px;gap:20px;flex-wrap:wrap;}
+.nav a {color:#fff;text-decoration:none;font-size:15px;cursor:pointer;}
+.nav a:hover {color:#3498db;}
+.container {max-width:1200px;margin:30px auto;padding:0 20px;}
+
+.calendar-head {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+    flex-wrap:wrap;
+    gap:10px;
+}
+.year-input-area {
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.year-input-area input {
+    width:80px;
+    padding:5px;
+    font-size:16px;
+    text-align:center;
+    border:1px solid #ddd;
+    border-radius:4px;
+}
+.year-input-area button {
+    padding:5px 10px;
+    border:none;
+    background:#2c3e50;
+    color:#fff;
+    border-radius:4px;
+    cursor:pointer;
+}
+.calendar-head button {padding:6px 12px;border:none;background:#2c3e50;color:#fff;border-radius:5px;cursor:pointer;}
+.year-month-title {font-size:20px;font-weight:bold;}
+.calendar-grid {display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
+.calendar-item {aspect-ratio:1/1;border:1px solid #eee;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;}
+.calendar-item:hover {background:#ecf0f1;}
+.calendar-item .day {font-size:18px;}
+.calendar-item .lunar {font-size:12px;color:#999;}
+.has-note::after {content:"●";color:#e74c3c;position:absolute;top:5px;right:5px;}
+
+.modal {position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:999;}
+.modal-box {width:90%;max-width:700px;background:#fff;border-radius:10px;padding:25px;max-height:90vh;overflow:auto;}
+.modal-title {font-size:18px;margin-bottom:15px;font-weight:bold;}
+textarea {width:100%;height:200px;padding:10px;border:1px solid #ddd;border-radius:6px;resize:none;margin-bottom:15px;}
+.upload-box {margin-bottom:15px;}
+.img-preview {display:flex;flex-wrap:wrap;gap:10px;margin:10px 0;}
+.img-preview img {width:100px;height:100px;object-fit:cover;border-radius:6px;}
+.btn-group {display:flex;gap:15px;justify-content:flex-end;flex-wrap:wrap;}
+.btn {padding:8px 20px;border:none;border-radius:5px;cursor:pointer;}
+.btn-save {background:#27ae60;color:#fff;}
+.btn-close {background:#95a5a6;color:#fff;}
+
+.read-wrap, .year-summary, .month-summary {background:#fff;padding:20px;border-radius:10px;box-shadow:0 0 10px #ddd;display:none;}
+.note-item {padding:15px;border-bottom:1px solid #eee;margin-bottom:10px;}
+.note-time {color:#666;font-size:14px;margin-bottom:8px;}
+.note-content {line-height:1.8;}
+.note-img {margin-top:10px;max-width:100%;border-radius:6px;}
+
+#fileImport {display:none;}
+</style>
+</head>
+<body>
+
+<div id="lockScreen">
+    <div class="lock-box">
+        <h2>家族编年史 · 请输入访问密码</h2>
+        <input type="password" id="pwdInput" placeholder="请输入密码" onkeydown="if(event.keyCode===13)checkPwd()">
+        <br>
+        <button onclick="checkPwd()">确认进入</button>
+    </div>
+</div>
+
+<div class="nav">
+    <a onclick="showCalendar()">日历首页</a>
+    <a onclick="enterReadMode()">阅读模式</a>
+    <a onclick="showYearSummary()">本年汇总</a>
+    <a onclick="showMonthSummary()">本月汇总</a>
+    <a onclick="exportData()">导出备份</a>
+    <a onclick="document.getElementById('fileImport').click()">导入备份</a>
+    <a onclick="modifyPwd()">修改密码</a>
+</div>
+<input type="file" id="fileImport" accept=".json" onchange="importData(event)">
+
+<div class="container">
+    <div class="calendar-wrap" id="calendarPage">
+        <div class="calendar-head">
+            <button onclick="prevYear()">上一年</button>
+            <button onclick="prevMonth()">上一月</button>
+
+            <div class="year-input-area">
+                <input type="number" id="jumpYear" placeholder="输入年份" min="1900" max="2100">
+                <button onclick="jumpToYear()">跳转</button>
+            </div>
+
+            <div class="year-month-title" id="yearMonthTitle"></div>
+
+            <button onclick="nextMonth()">下一月</button>
+            <button onclick="nextYear()">下一年</button>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+
+    <div class="read-wrap" id="readPage"></div>
+    <div class="year-summary" id="yearSummaryPage"></div>
+    <div class="month-summary" id="monthSummaryPage"></div>
+</div>
+
+<div class="modal" id="noteModal">
+    <div class="modal-box">
+        <div class="modal-title" id="modalTitle">记录往事</div>
+        <textarea id="noteText" placeholder="在这里记录家族往事、人物生平、生辰婚嫁、岁月回忆..."></textarea>
+        <div class="upload-box">
+            <input type="file" id="imgUpload" accept="image/*" multiple onchange="previewImg()">
+            <div class="img-preview" id="imgPreview"></div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-save" onclick="saveNote()">保存记录</button>
+            <button class="btn btn-close" onclick="closeModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let defaultPwd = "260501";
+function getPwd(){
+    let p = localStorage.getItem('familySitePwd');
+    return p ? p : defaultPwd;
+}
+function checkPwd(){
+    let input = document.getElementById('pwdInput').value;
+    if(input === getPwd()){
+        document.getElementById('lockScreen').style.display = 'none';
+        renderCalendar();
+    }else{
+        alert('密码错误，请重新输入');
+        document.getElementById('pwdInput').value = '';
+    }
+}
+function modifyPwd(){
+    let oldP = prompt("请输入原密码：");
+    if(oldP !== getPwd()){
+        alert("原密码错误");
+        return;
+    }
+    let newP = prompt("请设置新密码：");
+    if(!newP || newP.trim()===""){
+        alert("密码不能为空");
+        return;
+    }
+    localStorage.setItem('familySitePwd', newP);
+    alert("密码修改成功，请牢记！");
+}
+
+let currentYear = new Date().getFullYear();
+let currentMonth = new Date().getMonth() + 1;
+let currentEditType = 'day';
+let currentEditDate = '';
+let tempImgList = [];
+
+function jumpToYear(){
+    let y = parseInt(document.getElementById('jumpYear').value);
+    if(isNaN(y) || y < 1900 || y > 2100){
+        alert('请输入1900–2100之间的年份');
+        return;
+    }
+    currentYear = y;
+    renderCalendar();
+}
+
+function hideAllPage(){
+    document.getElementById('calendarPage').style.display = 'none';
+    document.getElementById('readPage').style.display = 'none';
+    document.getElementById('yearSummaryPage').style.display = 'none';
+    document.getElementById('monthSummaryPage').style.display = 'none';
+}
+function showCalendar(){
+    hideAllPage();
+    document.getElementById('calendarPage').style.display = 'block';
+    renderCalendar();
+}
+
+function getLunarDay(y,m,d){
+    const lunarArr = ["初一","初二","初三","初四","初五","初六","初七","初八","初九","初十",
+    "十一","十二","十三","十四","十五","十六","十七","十八","十九","二十",
+    "廿一","廿二","廿三","廿四","廿五","廿六","廿七","廿八","廿九","三十"];
+    let date = new Date(y,m-1,d);
+    let base = new Date(1900,0,1);
+    let diff = Math.floor((date - base)/(1000*60*60*24));
+    let lunarDay = (diff + 9) % 30;
+    return lunarArr[lunarDay];
+}
+
+function renderCalendar(){
+    document.getElementById('yearMonthTitle').innerText = `${currentYear}年${currentMonth}月`;
+    document.getElementById('jumpYear').value = currentYear;
+    let grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+    let firstDay = new Date(currentYear, currentMonth-1, 1).getDay();
+    let days = new Date(currentYear, currentMonth, 0).getDate();
+
+    for(let i=0;i<firstDay;i++){
+        let item = document.createElement('div');
+        item.className = 'calendar-item';
+        grid.appendChild(item);
+    }
+
+    for(let d=1;d<=days;d++){
+        let item = document.createElement('div');
+        item.className = 'calendar-item';
+        let lunar = getLunarDay(currentYear,currentMonth,d);
+        item.innerHTML = `<div class="day">${d}</div><div class="lunar">${lunar}</div>`;
+        let key = `${currentYear}-${currentMonth}-${d}`;
+        let note = localStorage.getItem(key);
+        if(note) item.classList.add('has-note');
+        item.onclick = function(){
+            openEdit('day', key, `${currentYear}年${currentMonth}月${d}日 ${lunar}`);
+        };
+        grid.appendChild(item);
+    }
+}
+
+function prevYear(){currentYear--;renderCalendar();}
+function nextYear(){currentYear++;renderCalendar();}
+function prevMonth(){
+    currentMonth--;
+    if(currentMonth<1){currentMonth=12;currentYear--;}
+    renderCalendar();
+}
+function nextMonth(){
+    currentMonth++;
+    if(currentMonth>12){currentMonth=1;currentYear++;}
+    renderCalendar();
+}
+
+function openEdit(type, dateStr, title){
+    currentEditType = type;
+    currentEditDate = dateStr;
+    document.getElementById('modalTitle').innerText = title;
+    let old = localStorage.getItem(dateStr);
+    if(old){
+        let obj = JSON.parse(old);
+        document.getElementById('noteText').value = obj.text || '';
+        tempImgList = obj.img || [];
+        renderImgPreview();
+    }else{
+        document.getElementById('noteText').value = '';
+        tempImgList = [];
+        document.getElementById('imgPreview').innerHTML = '';
+    }
+    document.getElementById('noteModal').style.display = 'flex';
+}
+function closeModal(){
+    document.getElementById('noteModal').style.display = 'none';
+    tempImgList = [];
+}
+
+function previewImg(){
+    let fileList = document.getElementById('imgUpload').files;
+    for(let file of fileList){
+        let reader = new FileReader();
+        reader.onload = function(e){
+            tempImgList.push(e.target.result);
+            renderImgPreview();
+        }
+        reader.readAsDataURL(file);
+    }
+}
+function renderImgPreview(){
+    let wrap = document.getElementById('imgPreview');
+    wrap.innerHTML = '';
+    tempImgList.forEach(src=>{
+        let img = document.createElement('img');
+        img.src = src;
+        wrap.appendChild(img);
+    });
+}
+
+function saveNote(){
+    let text = document.getElementById('noteText').value;
+    let data = {text:text, img:tempImgList};
+    localStorage.setItem(currentEditDate, JSON.stringify(data));
+    alert('保存成功！');
+    closeModal();
+    renderCalendar();
+}
+
+function enterReadMode(){
+    hideAllPage();
+    let page = document.getElementById('readPage');
+    page.style.display = 'block';
+    page.innerHTML = '<h3>家族编年史 · 时间线阅读</h3><hr style="margin:15px 0;">';
+    
+    let allNotes = [];
+    for(let y=1900;y<=2100;y++){
+        for(let m=1;m<=12;m++){
+            let days = new Date(y,m,0).getDate();
+            for(let d=1;d<=days;d++){
+                let key = `${y}-${m}-${d}`;
+                let val = localStorage.getItem(key);
+                if(val){
+                    allNotes.push({key, y,m,d, data:JSON.parse(val)});
+                }
+            }
+        }
+    }
+    allNotes.sort((a,b)=>{
+        let t1 = new Date(a.y,a.m-1,a.d).getTime();
+        let t2 = new Date(b.y,b.m-1,b.d).getTime();
+        return t1 - t2;
+    });
+    if(allNotes.length===0){
+        page.innerHTML += '<p>暂无任何家族往事记录</p>';
+        return;
+    }
+    allNotes.forEach(item=>{
+        let timeStr = `${item.y}年${item.m}月${item.d}日`;
+        let html = `<div class="note-item"><div class="note-time">${timeStr}</div><div class="note-content">${item.data.text}</div>`;
+        if(item.data.img && item.data.img.length>0){
+            item.data.img.forEach(src=>html += `<img src="${src}" class="note-img">`);
+        }
+        html += '</div>';
+        page.innerHTML += html;
+    });
+}
+
+function showYearSummary(){
+    hideAllPage();
+    let page = document.getElementById('yearSummaryPage');
+    page.style.display = 'block';
+    page.innerHTML = `<h3>${currentYear}年 家族往事汇总</h3><hr style="margin:15px 0;">`;
+    let has = false;
+    for(let m=1;m<=12;m++){
+        let days = new Date(currentYear,m,0).getDate();
+        for(let d=1;d<=days;d++){
+            let key = `${currentYear}-${m}-${d}`;
+            let val = localStorage.getItem(key);
+            if(val){
+                has = true;
+                let data = JSON.parse(val);
+                let html = `<div class="note-item"><div class="note-time">${currentYear}年${m}月${d}日</div><div class="note-content">${data.text}</div>`;
+                if(data.img && data.img.length>0){
+                    data.img.forEach(src=>html += `<img src="${src}" class="note-img">`);
+                }
+                html += '</div>';
+                page.innerHTML += html;
+            }
+        }
+    }
+    if(!has) page.innerHTML += '<p>本年暂无记录</p>';
+}
+
+function showMonthSummary(){
+    hideAllPage();
+    let page = document.getElementById('monthSummaryPage');
+    page.style.display = 'block';
+    page.innerHTML = `<h3>${currentYear}年${currentMonth}月 家族往事汇总</h3><hr style="margin:15px 0;">`;
+    let has = false;
+    let days = new Date(currentYear,currentMonth,0).getDate();
+    for(let d=1;d<=days;d++){
+        let key = `${currentYear}-${currentMonth}-${d}`;
+        let val = localStorage.getItem(key);
+        if(val){
+            has = true;
+            let data = JSON.parse(val);
+            let html = `<div class="note-item"><div class="note-time">${currentYear}年${currentMonth}月${d}日</div><div class="note-content">${data.text}</div>`;
+            if(data.img && data.img.length>0){
+                data.img.forEach(src=>html += `<img src="${src}" class="note-img">`);
+            }
+            html += '</div>';
+            page.innerHTML += html;
+        }
+    }
+    if(!has) page.innerHTML += '<p>本月暂无记录</p>';
+}
+
+function exportData(){
+    let allData = {};
+    for(let i=0;i<localStorage.length;i++){
+        let key = localStorage.key(i);
+        if(key !== 'familySitePwd'){
+            allData[key] = localStorage.getItem(key);
+        }
+    }
+    let jsonStr = JSON.stringify(allData,null,2);
+    let blob = new Blob([jsonStr],{type:"application/json"});
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url;
+    a.download = "家族编年史_备份.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    alert('备份文件已下载，请妥善保存！');
+}
+
+function importData(e){
+    let file = e.target.files[0];
+    if(!file) return;
+    let reader = new FileReader();
+    reader.onload = function(event){
+        try{
+            let data = JSON.parse(event.target.result);
+            for(let key in data){
+                localStorage.setItem(key, data[key]);
+            }
+            alert('导入成功！所有家族记录已恢复');
+            renderCalendar();
+        }catch(err){
+            alert('备份文件格式错误，导入失败');
+        }
+    }
+    reader.readAsText(file);
+    document.getElementById('fileImport').value = '';
+}
+
+window.onload = function(){}
+</script>
+</body>
+</html>
