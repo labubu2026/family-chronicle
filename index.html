@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家族编年史</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            background: #f7f9fc;
+            padding: 10px;
+        }
+
+        /* 登录页 */
+        #loginPage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        #loginPage h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        #pwd {
+            font-size: 24px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            width: 220px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #loginBtn {
+            font-size: 22px;
+            padding: 12px 30px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        /* 导航 */
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .nav button {
+            font-size: 20px;
+            padding: 12px 18px;
+            border-radius: 10px;
+            border: none;
+            background: #3498db;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* 年月控制 */
+        .yearMonth {
+            text-align: center;
+            margin: 10px 0 20px;
+            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .yearMonth input {
+            font-size: 22px;
+            padding: 10px;
+            width: 120px;
+            text-align: center;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        /* 日历 */
+        .calendar {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .calendar table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .calendar th {
+            font-size: 20px;
+            padding: 12px;
+            background: #f0f5ff;
+        }
+
+        .calendar td {
+            width: 14.28%;
+            height: 110px;
+            vertical-align: top;
+            padding: 10px;
+            border: 1px solid #eee;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .day {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .week {
+            font-size: 14px;
+            color: #e74c3d;
+            margin-top: 2px;
+        }
+
+        .hasText {
+            background: #e3f2fd;
+            margin-top: 6px;
+            padding: 4px;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        /* 弹窗 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+
+        .modalBox {
+            background: white;
+            width: 94%;
+            max-width: 700px;
+            padding: 30px;
+            border-radius: 16px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 240px;
+            font-size: 20px;
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 12px;
+            resize: none;
+        }
+
+        .modalBox button {
+            font-size: 20px;
+            padding: 12px 24px;
+            margin-right: 10px;
+            border-radius: 10px;
+            border: none;
+            background: #3498db;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* 阅读模式 */
+        .readPage {
+            max-width: 900px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .readPage h2 {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 30px;
+        }
+
+        .item {
+            font-size: 20px;
+            line-height: 1.8;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+
+        .item img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 8px 0;
+        }
+
+        .time {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 6px;
+        }
+
+        .filter {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .filter button {
+            font-size: 20px;
+            padding: 10px 20px;
+            margin: 0 6px;
+            border-radius: 10px;
+            border: none;
+            background: #2ecc71;
+            color: white;
+            cursor: pointer;
+        }
+
+        .editBtn, .delBtn {
+            position: absolute;
+            top: 8px;
+            font-size: 16px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+        .editBtn {
+            right: 70px;
+            background: #3498db;
+        }
+        .delBtn {
+            right: 10px;
+            background: #e74c3c;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- 登录 -->
+<div id="loginPage">
+    <h2>家族编年史</h2>
+    <input type="password" id="pwd" placeholder="请输入密码">
+    <button id="loginBtn" onclick="login()">进入</button>
+</div>
+
+<!-- 主内容 -->
+<div id="main" style="display:none;">
+
+    <div class="nav">
+        <button onclick="showCalendar()">日历模式</button>
+        <button onclick="showRead()">阅读模式</button>
+        <button onclick="exportData()">导出备份</button>
+        <button onclick="importData()">导入备份</button>
+    </div>
+
+    <!-- 日历 -->
+    <div id="calPage">
+        <div class="yearMonth">
+            年份：<input type="number" id="y" min="1930" max="2100" onchange="render()">
+            月份：<input type="number" id="m" min="1" max="12" onchange="render()">
+        </div>
+        <div class="calendar" id="calendar"></div>
+    </div>
+
+    <!-- 阅读 -->
+    <div class="readPage" id="readPage">
+        <h2>家族编年史</h2>
+        <div class="filter">
+            <button onclick="showByYear()">按年份查看</button>
+            <button onclick="showByMonth()">按月份查看</button>
+            <button onclick="showAll()">显示全部</button>
+        </div>
+        <div id="list"></div>
+    </div>
+</div>
+
+<script>
+    const PASSWORD = "45461";
+    const DB_URL = "https://api.npoint.io/36035f66bd380dc9e7e5";
+    const SAVE_KEY = "260501";
+
+    let data = {};
+    let now = new Date();
+    let cy = now.getFullYear();
+    let cm = now.getMonth() + 1;
+
+    // ------------------------------
+    // 登录
+    // ------------------------------
+    function login(){
+        let v = document.getElementById("pwd").value;
+        if(v === PASSWORD){
+            document.getElementById("loginPage").style.display = "none";
+            document.getElementById("main").style.display = "block";
+            loadData();
+        }else{
+            alert("密码错误");
+        }
+    }
+
+    // ------------------------------
+    // 云端
+    // ------------------------------
+    async function loadData(){
+        try{
+            let r = await fetch(DB_URL);
+            let j = await r.json();
+            if(j && j.data) data = j.data;
+        }catch(e){}
+        if(!data || typeof data !== "object") data = {};
+        render();
+    }
+
+    async function saveData(){
+        try{
+            await fetch(DB_URL,{
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({pwd:SAVE_KEY,data:data})
+            });
+        }catch(e){}
+        render();
+    }
+
+    // ------------------------------
+    // 日历渲染（已删除农历）
+    // ------------------------------
+    function render(){
+        let y = parseInt(document.getElementById("y").value) || cy;
+        let m = parseInt(document.getElementById("m").value) || cm;
+        cy = y; cm = m;
+
+        let days = new Date(y,m,0).getDate();
+        let first = new Date(y,m-1,1).getDay();
+        let w = ["日","一","二","三","四","五","六"];
+        let html = `<table><tr>`;
+        for(let s of w) html+=`<th>周${s}</th>`;
+        html+=`</tr><tr>`;
+        for(let i=0;i<first;i++) html+=`<td></td>`;
+
+        for(let d=1;d<=days;d++){
+            let dateStr = `${y}-${m}-${d}`;
+            let has = data[dateStr] && data[dateStr].length > 0
+                ? `<div class="hasText">${data[dateStr].length} 条记录</div>`
+                : "";
+
+            html+=`
+            <td onclick="openEdit('${dateStr}')">
+                <div class="day">${d}</div>
+                <div class="week">周${w[new Date(y,m-1,d).getDay()]}</div>
+                ${has}
+            </td>`;
+
+            if((d+first)%7===0) html+=`</tr><tr>`;
+        }
+        html+=`</tr></table>`;
+        document.getElementById("calendar").innerHTML = html;
+    }
+
+    // ------------------------------
+    // 编辑弹窗（支持同一天多条记录）
+    // ------------------------------
+    let currentEditDate = "";
+    let currentEditIndex = -1;
+
+    function openEdit(date, editIdx = -1){
+        currentEditDate = date;
+        currentEditIndex = editIdx;
+
+        let list = data[date] || [];
+        let defaultValue = editIdx >= 0 ? list[editIdx] : "";
+
+        let m = document.createElement("div");
+        m.className = "modal";
+        m.innerHTML = `
+        <div class="modalBox">
+            <h3>${date} ${editIdx >=0 ? '编辑记录' : '新增记录'}</h3>
+            <textarea id="content">${defaultValue}</textarea>
+            <button onclick="pickImg()">插入图片</button>
+            <button onclick="saveRecord()">保存</button>
+            <button onclick="this.parentElement.parentElement.remove()">取消</button>
+        </div>`;
+        document.body.appendChild(m);
+    }
+
+    function pickImg(){
+        let i = document.createElement("input");
+        i.type = "file";
+        i.accept = "image/*";
+        i.onchange = e=>{
+            let f = new FileReader();
+            f.onload = ev=>{
+                let img = `<img src="${ev.target.result}">`;
+                document.getElementById("content").value += "\n" + img;
+            };
+            f.readAsDataURL(e.target.files[0]);
+        };
+        i.click();
+    }
+
+    function saveRecord(){
+        let date = currentEditDate;
+        let idx = currentEditIndex;
+        let val = document.getElementById("content").value.trim();
+        if(!val) return;
+
+        if(!data[date]) data[date] = [];
+        if(idx >= 0){
+            data[date][idx] = val;
+        }else{
+            data[date].push(val);
+        }
+
+        saveData();
+        document.querySelector(".modal").remove();
+    }
+
+    // ------------------------------
+    // 页面切换
+    // ------------------------------
+    function showCalendar(){
+        document.getElementById("calPage").style.display = "block";
+        document.getElementById("readPage").style.display = "none";
+    }
+
+    function showRead(){
+        document.getElementById("calPage").style.display = "none";
+        document.getElementById("readPage").style.display = "block";
+        showAll();
+    }
+
+    // ------------------------------
+    // 阅读 & 筛选（带编辑/删除按钮）
+    // ------------------------------
+    function showAll(){
+        let out = "";
+        let keys = Object.keys(data).sort();
+        for(let k of keys){
+            let list = data[k] || [];
+            list.forEach((item, idx) => {
+                out += `
+                <div class="item">
+                    <div class="time">${k}</div>
+                    ${item}
+                    <button class="editBtn" onclick="openEdit('${k}',${idx})">编辑</button>
+                    <button class="delBtn" onclick="delRecord('${k}',${idx})">删除</button>
+                </div>`;
+            });
+        }
+        document.getElementById("list").innerHTML = out || "<p>暂无记录</p>";
+    }
+
+    function delRecord(date, idx){
+        if(!confirm("确定删除这条记录？")) return;
+        if(data[date]){
+            data[date].splice(idx, 1);
+            if(data[date].length === 0) delete data[date];
+            saveData();
+            showAll();
+        }
+    }
+
+    function showByYear(){
+        let y = prompt("请输入年份：",cy);
+        if(!y) return;
+        let out = "";
+        for(let k in data){
+            if(k.startsWith(y+"-")){
+                data[k].forEach((item, idx) => {
+                    out += `
+                    <div class="item">
+                        <div class="time">${k}</div>
+                        ${item}
+                        <button class="editBtn" onclick="openEdit('${k}',${idx})">编辑</button>
+                        <button class="delBtn" onclick="delRecord('${k}',${idx})">删除</button>
+                    </div>`;
+                });
+            }
+        }
+        document.getElementById("list").innerHTML = out || "<p>无记录</p>";
+    }
+
+    function showByMonth(){
+        let y = prompt("年份：",cy);
+        let m = prompt("月份：",cm);
+        if(!y||!m) return;
+        let p = `${y}-${m}-`;
+        let out = "";
+        for(let k in data){
+            if(k.startsWith(p)){
+                data[k].forEach((item, idx) => {
+                    out += `
+                    <div class="item">
+                        <div class="time">${k}</div>
+                        ${item}
+                        <button class="editBtn" onclick="openEdit('${k}',${idx})">编辑</button>
+                        <button class="delBtn" onclick="delRecord('${k}',${idx})">删除</button>
+                    </div>`;
+                });
+            }
+        }
+        document.getElementById("list").innerHTML = out || "<p>无记录</p>";
+    }
+
+    // ------------------------------
+    // 导入导出
+    // ------------------------------
+    function exportData(){
+        let b = new Blob([JSON.stringify(data)],{type:"application/json"});
+        let a = document.createElement("a");
+        a.href = URL.createObjectURL(b);
+        a.download = "家族编年史.json";
+        a.click();
+    }
+
+    function importData(){
+        let i = document.createElement("input");
+        i.type = "file";
+        i.accept = ".json";
+        i.onchange = e=>{
+            let f = new FileReader();
+            f.onload = ev=>{
+                data = JSON.parse(ev.target.result);
+                saveData();
+                alert("导入成功");
+            };
+            f.readAsText(e.target.files[0]);
+        };
+        i.click();
+    }
+
+    // 初始化
+    window.onload = ()=>{
+        document.getElementById("y").value = cy;
+        document.getElementById("m").value = cm;
+    };
+</script>
+
+</body>
+</html>
