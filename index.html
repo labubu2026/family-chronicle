@@ -114,7 +114,7 @@
             <button id="btnRead" onclick="switchMode('read')">阅读模式</button>
             <button onclick="exportBackup()">导出备份</button>
             <button onclick="importBackup()">导入备份</button>
-            <button onclick="forceSync()">强制同步云端</button>
+            <button onclick="syncCloud()">同步到云端</button>
         </div>
     </div>
 
@@ -156,7 +156,6 @@ const PASSWORD = "45461";
 const NPOINT_URL = "https://api.npoint.io/36035f66bd380dc9e7e5";
 const LOCAL_KEY = "family_chronicle_records";
 
-// 图片配置（已帮你调好，不用改）
 const MAX_FILE_SIZE_MB = 10;
 const MAX_IMAGE_WIDTH = 1200;
 const IMAGE_QUALITY = 0.85;
@@ -165,7 +164,6 @@ let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 let allRecords = [];
 
-// 状态提示
 function showSyncStatus(text, isError=false) {
     const el = document.getElementById("syncStatus");
     el.textContent = text;
@@ -173,20 +171,20 @@ function showSyncStatus(text, isError=false) {
     setTimeout(()=> el.textContent = "", 3000);
 }
 
-// 密码验证
 function checkPassword() {
     const input = document.getElementById("password").value.trim();
     if (input === PASSWORD) {
         document.getElementById("passwordBox").style.display = "none";
         document.getElementById("mainContainer").style.display = "block";
-        loadFromLocal();
-        loadFromCloud();
+        // 先从云端拉取，再加载本地（新设备直接用云端覆盖）
+        loadFromCloud().then(() => {
+            loadFromLocal();
+        });
     } else {
         alert("密码错误，请重试！");
     }
 }
 
-// 切换模式
 function switchMode(mode) {
     const calendar = document.getElementById("calendarMode");
     const read = document.getElementById("readMode");
@@ -203,7 +201,6 @@ function switchMode(mode) {
     }
 }
 
-// 本地存储
 function saveToLocal() {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(allRecords));
 }
@@ -217,29 +214,25 @@ function loadFromLocal() {
     }
 }
 
-// 云端加载
+// 改这里：云端加载时，直接覆盖本地（新设备也能看到）
 async function loadFromCloud() {
     try {
         const res = await fetch(NPOINT_URL);
         if (!res.ok) throw new Error("加载失败");
         const data = await res.json();
         if (data.records && Array.isArray(data.records)) {
-            const cloudRecords = data.records;
-            const localIds = new Set(allRecords.map(r => r.id));
-            cloudRecords.forEach(r => {
-                if (!localIds.has(r.id)) allRecords.push(r);
-            });
+            // 直接覆盖，不是追加
+            allRecords = data.records;
             saveToLocal();
             renderCalendar();
-            showSyncStatus("已同步云端数据");
+            showSyncStatus("已从云端同步所有数据");
         }
     } catch (e) {
         console.error("云端加载失败", e);
     }
 }
 
-// 强制同步云端
-async function forceSync() {
+async function syncCloud() {
     const payload = { records: allRecords };
     try {
         const res = await fetch(NPOINT_URL, {
@@ -248,16 +241,14 @@ async function forceSync() {
             body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error("同步失败");
-        showSyncStatus("强制同步成功！");
+        showSyncStatus("已成功同步到云端 ✅");
         return true;
     } catch (e) {
         console.error("同步失败", e);
         showSyncStatus("云端同步失败，请稍后再试", true);
         return false;
     }
-}
 
-// 渲染日历
 function renderCalendar() {
     const container = document.getElementById("calendarDays");
     container.innerHTML = "";
@@ -281,7 +272,6 @@ function renderCalendar() {
     }
 }
 
-// 跳转年月
 function jumpToDate() {
     const y = parseInt(document.getElementById("yearInput").value);
     const m = parseInt(document.getElementById("monthInput").value);
@@ -293,7 +283,6 @@ function jumpToDate() {
     }
 }
 
-// 打开编辑弹窗
 function openEditModal(date, record = null) {
     document.getElementById("editModal").style.display = "flex";
     document.getElementById("currentDate").value = date;
@@ -303,17 +292,14 @@ function openEditModal(date, record = null) {
     document.getElementById("previewImg").innerHTML = record?.image ? `<img src="${record.image}" class="record-img">` : "";
 }
 
-// 关闭弹窗
 function closeModal() {
     document.getElementById("editModal").style.display = "none";
     document.getElementById("imageInput").value = "";
     document.getElementById("previewImg").innerHTML = "";
 }
 
-// 图片压缩：超10MB直接拦截，大图缩到1200宽，画质85%，小图尽量保真
 function compressImage(file) {
     return new Promise((resolve, reject) => {
-        // 限制10MB
         const maxSize = MAX_FILE_SIZE_MB * 1024 * 1024;
         if (file.size > maxSize) {
             reject(`图片不能超过${MAX_FILE_SIZE_MB}MB，请压缩后再上传`);
@@ -323,7 +309,6 @@ function compressImage(file) {
         img.onload = () => {
             let w = img.width;
             let h = img.height;
-            // 仅宽度超过才缩小，小图保持原图尺寸
             if (w > MAX_IMAGE_WIDTH) {
                 h = (MAX_IMAGE_WIDTH / w) * h;
                 w = MAX_IMAGE_WIDTH;
@@ -340,7 +325,6 @@ function compressImage(file) {
     });
 }
 
-// 保存记录
 async function saveRecord() {
     const date = document.getElementById("currentDate").value;
     const content = document.getElementById("recordContent").value.trim();
@@ -378,12 +362,11 @@ async function saveRecord() {
     saveToLocal();
     closeModal();
     renderCalendar();
-    showSyncStatus("已保存到本地，后台同步云端...");
+    showSyncStatus("已保存到本地，正在同步云端...");
     
-    setTimeout(() => forceSync(), 1000);
+    setTimeout(() => syncCloud(), 1000);
 }
 
-// 初始化筛选器
 function initFilter() {
     const yearSelect = document.getElementById("filterYear");
     const monthSelect = document.getElementById("filterMonth");
@@ -396,7 +379,6 @@ function initFilter() {
     }
 }
 
-// 筛选记录
 function filterRecords() {
     const year = document.getElementById("filterYear").value;
     const month = document.getElementById("filterMonth").value;
@@ -406,7 +388,6 @@ function filterRecords() {
     renderRecords(list);
 }
 
-// 渲染阅读列表
 function renderRecords(list) {
     const container = document.getElementById("recordsList");
     container.innerHTML = list.length === 0 ? "<p style='text-align:center;padding:20px;'>暂无记录</p>" : "";
@@ -426,23 +407,20 @@ function renderRecords(list) {
     });
 }
 
-// 编辑
 function editRecord(id) {
     const record = allRecords.find(r => r.id === id);
     openEditModal(record.date, record);
 }
 
-// 删除
 async function deleteRecord(id) {
     if (!confirm("确定删除这条记录吗？")) return;
     allRecords = allRecords.filter(r => r.id !== id);
     saveToLocal();
     filterRecords();
     renderCalendar();
-    setTimeout(() => forceSync(), 500);
+    setTimeout(() => syncCloud(), 500);
 }
 
-// 导出备份
 function exportBackup() {
     const blob = new Blob([JSON.stringify(allRecords, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
@@ -451,7 +429,6 @@ function exportBackup() {
     a.click();
 }
 
-// 导入备份
 function importBackup() {
     const input = document.createElement("input");
     input.type = "file";
@@ -468,7 +445,7 @@ function importBackup() {
             saveToLocal();
             renderCalendar();
             alert("导入成功！");
-            setTimeout(() => forceSync(), 500);
+            setTimeout(() => syncCloud(), 500);
         } catch (err) {
             alert("备份文件格式错误");
         }
